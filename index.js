@@ -12,6 +12,44 @@ const mergedSchemaObj = require('./graphqlSchema');
 
 
 
+const ObjectScalarType = new GraphQLScalarType({
+    name: 'Object',
+    description: 'Arbitrary object',
+    parseValue: (value) => {
+        return typeof value === 'object' ? value
+            : typeof value === 'string' ? JSON.parse(value)
+                : null
+    },
+    serialize: (value) => {
+        return typeof value === 'object' ? value
+            : typeof value === 'string' ? JSON.parse(value)
+                : null
+    },
+    parseLiteral: (ast) => {
+        switch (ast.kind) {
+            case Kind.STRING: return JSON.parse(ast.value)
+            case Kind.OBJECT: throw new Error(`Not sure what to do with OBJECT for ObjectScalarType`)
+            default: return null
+        }
+    }
+})
+
+const resolvers = {
+    Object: ObjectScalarType,
+    Query: {
+        jobs: () => stubs.jobs,
+        algorithms: () => stubs.algorithms,
+        algorithmsByName: (parent, args, context, info) => {
+            return stubs.algorithms.find(algorithm => algorithm.name === args.name);
+        },
+        jobsByExperimentName: (parent, args, context, info) => {
+            return stubs.jobs.filter(job => job.pipeline.experimentName === args.experimentName);
+        },
+        pipelines: () => stubs.pipelines,
+        algorithmBuilds: () => stubs.algorithmBuilds,
+    }
+
+};
 
 
 
@@ -23,53 +61,15 @@ const mergedSchemaObj = require('./graphqlSchema');
 
 
 
-
-async function startApolloServer() {
+async function startApolloServer(typeDefs, resolvers) {
     // Required logic for integrating with Express
     const app = express();
     const httpServer = http.createServer(app);
 
 
-    const ObjectScalarType = new GraphQLScalarType({
-        name: 'Object',
-        description: 'Arbitrary object',
-        parseValue: (value) => {
-            return typeof value === 'object' ? value
-                : typeof value === 'string' ? JSON.parse(value)
-                    : null
-        },
-        serialize: (value) => {
-            return typeof value === 'object' ? value
-                : typeof value === 'string' ? JSON.parse(value)
-                    : null
-        },
-        parseLiteral: (ast) => {
-            switch (ast.kind) {
-                case Kind.STRING: return JSON.parse(ast.value)
-                case Kind.OBJECT: throw new Error(`Not sure what to do with OBJECT for ObjectScalarType`)
-                default: return null
-            }
-        }
-    })
 
-    const resolvers = {
-        Object: ObjectScalarType,
-        Query: {
-            jobs: () => stubs.jobs,
-            algorithms: () => stubs.algorithms,
-            algorithmsByName: (parent, args, context, info) => {
-                return stubs.algorithms.find(algorithm => algorithm.name === args.name);
-            },
-            jobsByExperimentName: (parent, args, context, info) => {
-                return stubs.jobs.filter(job => job.pipeline.experimentName === args.experimentName);
-            },
-            pipelines: () => stubs.pipelines,
-            algorithmBuilds: () => stubs.algorithmBuilds,
-        }
 
-    };
-
-    const schema = makeExecutableSchema({ typeDefs: mergedSchemaObj, resolvers });
+    const schema = makeExecutableSchema({ typeDefs, resolvers });
     // Same ApolloServer initialization as before, plus the drain plugin.
     const server = new ApolloServer({
         schema,
@@ -106,6 +106,6 @@ async function startApolloServer() {
 // }).catch(err => {
 //     console.log(err);
 // });
-startApolloServer().catch(err => {
+startApolloServer(mergedSchemaObj, resolvers).catch(err => {
     console.log(err);
 });
