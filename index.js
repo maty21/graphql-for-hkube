@@ -1,114 +1,56 @@
 const { ApolloServer, gql } = require('apollo-server');
-const { graphqlSync } = require('graphql');
-
-// A schema is a collection of type definitions (hence "typeDefs")
-// that together define the "shape" of queries that are executed against
-// your data.
-const typeDefs = gql`
-  # Comments in GraphQL strings (such as this one) start with the hash (#) symbol.
-  # This "Book" type defines the queryable fields for every book in our data source.
-  type Book {
-    title: String
-    author: String
-  }
-
-  type People {
-    first: String
-    last: String
-    myBooks: [Book]
-  }
-
-type Job{
-    id: String,
-    pipelineName: String,
-    graph:Graph
-}
-type Graph{
-    name:String,
-    graphObj:graphObject,
-}
-
-type graphObject{
-    name: String
-}
-  # The "Query" type is special: it lists all of the available queries that
-  # clients can execute, along with the return type for each. In this
-  # case, the "books" query returns an array of zero or more Books (defined above).
-  type Query {
-    books: [Book],
-    peoples:[People],
-    jobs:[Job],
-    # graphs:[Graph]
-     getJobs(name:String):Job
-  }
-`;
+const { graphqlSync, GraphQLScalarType } = require('graphql');
+const stubs = require('./stub.json');
+const { makeExecutableSchema } = require('@graphql-tools/schema');
+const mergedSchemaObj = require('./graphqlSchema');
 
 
-const books = [
-    {
-        title: 'The dgdfgsdg',
-        author: 'Kate Chopin',
+const ObjectScalarType = new GraphQLScalarType({
+    name: 'Object',
+    description: 'Arbitrary object',
+    parseValue: (value) => {
+        return typeof value === 'object' ? value
+            : typeof value === 'string' ? JSON.parse(value)
+                : null
     },
-    {
-        title: 'City of Glass',
-        author: 'Paul Auster',
+    serialize: (value) => {
+        return typeof value === 'object' ? value
+            : typeof value === 'string' ? JSON.parse(value)
+                : null
     },
-];
-
-const peoples = [
-    {
-        first: 'Maty',
-        last: 'Zisserman',
-        myBooks: books,
-    },
-    {
-        first: 'Bar',
-        last: 'Zisserman',
-        myBooks: books
-    },
-];
-
-
-const graph = [
-    {
-        name: 'first',
-        graphObj: {
-            root: 'asdadad'
+    parseLiteral: (ast) => {
+        switch (ast.kind) {
+            case Kind.STRING: return JSON.parse(ast.value)
+            case Kind.OBJECT: throw new Error(`Not sure what to do with OBJECT for ObjectScalarType`)
+            default: return null
         }
     }
+})
 
-]
 
-const jobs = [
-    {
-        id: "first",
-        pipelineName: "name1",
-        graph: graph[0]
 
-    }
 
-]
 
-// Resolvers define the technique for fetching the types defined in the
-// schema. This resolver retrieves books from the "books" array above.
 const resolvers = {
+    Object: ObjectScalarType,
     Query: {
-        books: () => books,
-        peoples: () => peoples,
-        jobs: () => jobs,
-        // graph: () => graph,
-        getJobs: (parent, args, context, info) => {
-            console.log(`parent ${parent},args${args},context:${context},info:${info}`)
-            return jobs
-        }
-    },
+        jobs: () => stubs.jobs,
+        algorithms: () => stubs.algorithms,
+        algorithmsByName: (parent, args, context, info) => {
+            return stubs.algorithms.find(algorithm => algorithm.name === args.name);
+        },
+        pipelines: () => stubs.pipelines,
+        algorithmBuilds: () => stubs.algorithmBuilds,
+    }
+
 };
 
 
 
+const schema = makeExecutableSchema({ typeDefs: mergedSchemaObj, resolvers });
 // The ApolloServer constructor requires two parameters: your schema
 // definition and your set of resolvers.
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer({ schema });
 
 // The `listen` method launches a web server.
 server.listen().then(({ url }) => {
