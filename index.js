@@ -4,7 +4,7 @@ const { ApolloServerPluginDrainHttpServer } = require('apollo-server-core');
 const express = require('express');
 const { createServer } = require('http');
 const { SubscriptionServer } = require('subscriptions-transport-ws');
-const { PubSub } = require("graphql-subscriptions");
+const { PubSub, withFilter } = require("graphql-subscriptions");
 const { GraphQLScalarType, execute, subscribe } = require('graphql');
 const stubs = require('./stub.json');
 const { makeExecutableSchema } = require('@graphql-tools/schema');
@@ -53,6 +53,17 @@ const resolvers = {
                 return pubsub.asyncIterator(["NUMBER_INCREMENTED"])
             }
         },
+        numberIncrementedOdd: {
+            subscribe: withFilter(
+                () => pubsub.asyncIterator('NUMBER_INCREMENTED_ODD'),
+                (payload, variables) => {
+                    // Only push an update if the comment is on
+                    // the correct repository for this operation
+                    console.log(variables)
+                    return ((payload.numberIncrementedOdd % variables.number) === 0);
+                },
+            )
+        }
     },
 
 };
@@ -102,6 +113,8 @@ async function startApolloServer(typeDefs, resolvers) {
         function incrementNumber() {
             currentNumber++;
             pubsub.publish("NUMBER_INCREMENTED", { numberIncremented: currentNumber });
+            pubsub.publish("NUMBER_INCREMENTED_ODD", { numberIncrementedOdd: currentNumber });
+
             setTimeout(incrementNumber, 1000);
         }
         // Start incrementing

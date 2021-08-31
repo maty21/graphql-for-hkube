@@ -385,7 +385,9 @@ type Query {
 const Subscription = gql`
 type Subscription {
     numberIncremented: Int
+    numberIncrementedOdd(number: Int): Int
   }
+
   
   `
 
