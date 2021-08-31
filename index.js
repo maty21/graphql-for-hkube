@@ -2,14 +2,12 @@
 const { ApolloServer } = require('apollo-server-express');
 const { ApolloServerPluginDrainHttpServer } = require('apollo-server-core');
 const express = require('express');
-const http = require('http');
-const { graphqlSync, GraphQLScalarType } = require('graphql');
+const { createServer } = require('http');
+const { SubscriptionServer } = require('subscriptions-transport-ws');
+const { GraphQLScalarType, execute, subscribe } = require('graphql');
 const stubs = require('./stub.json');
 const { makeExecutableSchema } = require('@graphql-tools/schema');
-const mergedSchemaObj = require('./graphqlSchema');
-
-
-
+const typeDefs = require('./graphqlSchema');
 
 
 const ObjectScalarType = new GraphQLScalarType({
@@ -51,61 +49,81 @@ const resolvers = {
 
 };
 
+// async function startApolloServer(typeDefs, resolvers) {
+//     // Required logic for integrating with Express
+//     const app = express();
+//     const httpServer = http.createServer(app);
+//     const schema = makeExecutableSchema({ typeDefs, resolvers });
+//     const subscriptionServer = SubscriptionServer.create({ schema, execute, subscribe }, { server: httpServer, path: server.graphqlPath });
+
+//     const server = new ApolloServer({
+//         schema, plugins:
+//             [{
+//                 async serverWillStart() {
+//                     return {
+//                         async drainServer() {
+//                             subscriptionServer.close();
+//                         }
+//                     };
+//                 }
+//             }],
+//     });
+//     // More required logic for integrating with Express
+//     await server.start();
+//     server.applyMiddleware({
+//         app,
+//         // By default, apollo-server hosts its GraphQL endpoint at the
+//         // server root. However, *other* Apollo Server packages host it at
+//         // /graphql. Optionally provide this to match apollo-server.
+//         path: '/'
+//     });
+
+//     await new Promise(resolve => httpServer.listen({ port: 4000 }, resolve));
+//     console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`);
+// }
 
 
-
-
-
-
-
-
+// startApolloServer(mergedSchemaObj, resolvers).catch(err => {
+//     console.log(err);
+// });
 
 
 async function startApolloServer(typeDefs, resolvers) {
-    // Required logic for integrating with Express
     const app = express();
-    const httpServer = http.createServer(app);
 
+    const httpServer = createServer(app);
 
+    const schema = makeExecutableSchema({
+        typeDefs,
+        resolvers,
+    });
 
+    const subscriptionServer = SubscriptionServer.create(
+        { schema, execute, subscribe },
+        { server: httpServer, path: '/subscriptions' },
+    );
 
-    const schema = makeExecutableSchema({ typeDefs, resolvers });
-    // Same ApolloServer initialization as before, plus the drain plugin.
     const server = new ApolloServer({
         schema,
-        plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+        plugins: [{
+            async serverWillStart() {
+                return {
+                    async drainServer() {
+                        subscriptionServer.close();
+                    }
+                };
+            }
+        }],
     });
-
-    // More required logic for integrating with Express
     await server.start();
-    server.applyMiddleware({
-        app,
+    server.applyMiddleware({ app });
 
-        // By default, apollo-server hosts its GraphQL endpoint at the
-        // server root. However, *other* Apollo Server packages host it at
-        // /graphql. Optionally provide this to match apollo-server.
-        path: '/'
-    });
-
-    // Modified server startup
-    await new Promise(resolve => httpServer.listen({ port: 4000 }, resolve));
-    console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`);
+    const PORT = 4000;
+    httpServer.listen(PORT, () =>
+        console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
+    );
 }
 
-
-
-// The ApolloServer constructor requires two parameters: your schema
-// definition and your set of resolvers.
-
-
-// const server = new ApolloServer({ schema });
-
-// // The `listen` method launches a web server.
-// server.listen().then(({ url }) => {
-//     console.log(`🚀  Server ready at ${url}`);
-// }).catch(err => {
-//     console.log(err);
-// });
-startApolloServer(mergedSchemaObj, resolvers).catch(err => {
+startApolloServer(typeDefs, resolvers).catch(err => {
     console.log(err);
 });
