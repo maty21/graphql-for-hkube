@@ -219,7 +219,7 @@ type Algorithms {
   gpu: Int
   mem: String
   minHotWorkers: Int
-  modified: Int
+  modified: Float
   reservedMemory: String
   type: String
   algorithmImage: String
@@ -258,7 +258,7 @@ type PipelineNodes {
 
 type FlowInput { mul: Int data: Int }
 
-type Pipelines { modified: Int
+type Pipelines { modified: Float
   kind: String
   name: String
   priority: Int
@@ -365,7 +365,7 @@ const Query = gql`
 type Query {
     jobs: [Jobs]
     job(id: String!): Jobs
-    jobByExperimentName(experimentName: String!): Jobs
+    jobsByExperimentName(experimentName: String!): [Jobs]
     algorithms:[Algorithms]
     algorithmsByName(name: String): Algorithms
     pipelines:[Pipelines]
