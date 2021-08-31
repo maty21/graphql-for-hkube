@@ -359,10 +359,16 @@ type AlgorithmBuild {
  }
  `
 
+const SubscriptionIncNumbersTypeDefs = gql`
+type Subscription {
+    numberIncremented: Int
+  }
+  `
 
 
 const Query = gql`  
 type Query {
+    currentNumber: Int
     jobs: [Jobs]
     job(id: String!): Jobs
     jobsByExperimentName(experimentName: String!): [Jobs]
@@ -373,11 +379,14 @@ type Query {
     experiments:[Experiments]
     nodeStatistics:[NodeStatistics]
     dataSources:[DataSources]
-    pipelineStats:[PipelinesStats]
-  
-    author(id: Int!): AlgorithmBuild
-    
+    pipelineStats:[PipelinesStats]  
   }  
+  `
+const Subscription = gql`
+type Subscription {
+    numberIncremented: Int
+  }
+  
   `
 
 
@@ -392,7 +401,9 @@ const types = [
     nodeStatisticTypeDefs,
     diskSpaceTypeDefs,
     pipelineStatsTypeDefs,
-    Query
+    SubscriptionIncNumbersTypeDefs,
+    Query,
+    Subscription
 ];
 
 
